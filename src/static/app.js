@@ -13,6 +13,13 @@ document.addEventListener("DOMContentLoaded", () => {
       // Clear loading message
       activitiesList.innerHTML = "";
 
+      // Reset activity select so repeated fetches don't duplicate options
+      activitySelect.innerHTML = "";
+      const defaultOption = document.createElement("option");
+      defaultOption.value = "";
+      defaultOption.textContent = "-- Select an activity --";
+      activitySelect.appendChild(defaultOption);
+
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
         const activityCard = document.createElement("div");
@@ -20,11 +27,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Build participants HTML with delete buttons
+        let participantsHTML = `<div class="participants"><strong>Participants</strong>`;
+        if (details.participants && details.participants.length) {
+          participantsHTML += "<ul>";
+          details.participants.forEach((p) => {
+            participantsHTML += `
+              <li>
+                <span class="participant-email">${p}</span>
+                <button class="delete-participant" data-activity="${name}" data-email="${p}" aria-label="Remove participant">✖</button>
+              </li>`;
+          });
+          participantsHTML += "</ul>";
+        } else {
+          participantsHTML += `<p class="no-participants">No participants yet</p>`;
+        }
+        participantsHTML += `</div>`;
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsHTML}
         `;
 
         activitiesList.appendChild(activityCard);
@@ -34,6 +59,43 @@ document.addEventListener("DOMContentLoaded", () => {
         option.value = name;
         option.textContent = name;
         activitySelect.appendChild(option);
+      });
+
+      // Attach delete handlers for participant remove buttons
+      document.querySelectorAll(".delete-participant").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          const activity = btn.dataset.activity;
+          const email = btn.dataset.email;
+
+          try {
+            const resp = await fetch(
+              `/activities/${encodeURIComponent(activity)}/participants?email=${encodeURIComponent(email)}`,
+              { method: "DELETE" }
+            );
+            const result = await resp.json();
+
+            if (resp.ok) {
+              messageDiv.textContent = result.message;
+              messageDiv.className = "success";
+              // Refresh activities to update participants list and availability
+              fetchActivities();
+            } else {
+              messageDiv.textContent = result.detail || "An error occurred";
+              messageDiv.className = "error";
+            }
+
+            messageDiv.classList.remove("hidden");
+            setTimeout(() => {
+              messageDiv.classList.add("hidden");
+            }, 4000);
+          } catch (err) {
+            messageDiv.textContent = "Failed to remove participant.";
+            messageDiv.className = "error";
+            messageDiv.classList.remove("hidden");
+            console.error("Error removing participant:", err);
+          }
+        });
       });
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
@@ -62,6 +124,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Refresh activities so the newly signed-up participant appears
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
