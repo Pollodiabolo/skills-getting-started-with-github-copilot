@@ -27,31 +27,73 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
-        // Build participants HTML with delete buttons
-        let participantsHTML = `<div class="participants"><strong>Participants</strong>`;
+        // Build participants section with delete buttons using DOM APIs to avoid XSS
+        const participantsContainer = document.createElement("div");
+        participantsContainer.className = "participants";
+
+        const participantsTitle = document.createElement("strong");
+        participantsTitle.textContent = "Participants";
+        participantsContainer.appendChild(participantsTitle);
+
         if (details.participants && details.participants.length) {
-          participantsHTML += "<ul>";
+          const participantsList = document.createElement("ul");
+
           details.participants.forEach((p) => {
-            participantsHTML += `
-              <li>
-                <span class="participant-email">${p}</span>
-                <button class="delete-participant" data-activity="${name}" data-email="${p}" aria-label="Remove participant">✖</button>
-              </li>`;
+            const li = document.createElement("li");
+
+            const emailSpan = document.createElement("span");
+            emailSpan.className = "participant-email";
+            emailSpan.textContent = p;
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "delete-participant";
+            deleteButton.textContent = "✖";
+            deleteButton.dataset.activity = name;
+            deleteButton.dataset.email = p;
+            deleteButton.setAttribute("aria-label", "Remove participant");
+
+            li.appendChild(emailSpan);
+            li.appendChild(deleteButton);
+            participantsList.appendChild(li);
           });
-          participantsHTML += "</ul>";
+
+          participantsContainer.appendChild(participantsList);
         } else {
-          participantsHTML += `<p class="no-participants">No participants yet</p>`;
+          const noParticipants = document.createElement("p");
+          noParticipants.className = "no-participants";
+          noParticipants.textContent = "No participants yet";
+          participantsContainer.appendChild(noParticipants);
         }
-        participantsHTML += `</div>`;
 
-        activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-          ${participantsHTML}
-        `;
+        // Build activity card content safely using DOM APIs
+        const titleEl = document.createElement("h4");
+        titleEl.textContent = name;
 
+        const descriptionEl = document.createElement("p");
+        descriptionEl.textContent = details.description;
+
+        const scheduleEl = document.createElement("p");
+        const scheduleStrong = document.createElement("strong");
+        scheduleStrong.textContent = "Schedule:";
+        scheduleEl.appendChild(scheduleStrong);
+        scheduleEl.appendChild(document.createTextNode(" " + details.schedule));
+
+        const availabilityEl = document.createElement("p");
+        const availabilityStrong = document.createElement("strong");
+        availabilityStrong.textContent = "Availability:";
+        availabilityEl.appendChild(availabilityStrong);
+        availabilityEl.appendChild(
+          document.createTextNode(" " + spotsLeft + " spots left")
+        );
+
+        // Clear any existing content and append new safe content
+        activityCard.innerHTML = "";
+        activityCard.appendChild(titleEl);
+        activityCard.appendChild(descriptionEl);
+        activityCard.appendChild(scheduleEl);
+        activityCard.appendChild(availabilityEl);
+        activityCard.appendChild(participantsContainer);
         activitiesList.appendChild(activityCard);
 
         // Add option to select dropdown
